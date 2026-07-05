@@ -1,0 +1,372 @@
+Begin Installation
+==================
+
+1. In your main directory, create an 'i3' directory if it does not yet exist.
+   In that directory, place the i3.config, i3.channels, i3.bans, i3.commands,
+   i3.help, and i3.routers files. Transfer them as ASCII files.
+
+2. Place i3.c, i3.h, and i3cfg.h files in your src directory.
+
+3. To choose a color file, you need to know what color system ( if any ) your mud has.
+   For those tags the mud's color system does not support, standard ANSI tags will be used.
+
+   We provide the following color files:
+
+   i3.color.ansi = Straight ANSI
+      - Will use only I3 & codes and convert one way to ANSI codes.
+      - Users can simply enter I3 tokens directly for color.
+      - Ideal if your mud has no color system of its own or if it has no user selectable tokens.
+
+   i3.color.samson = Samson's Color Snippet
+      - For those of you who are running Samson's Custom ANSI from smaugmuds.afkmods.com
+      - This is the color file you'd also pick if you are running Smaug 1.4aFUSS.
+
+   i3.color.smaug = Stock Smaug
+      - For those of you using sotck Smaug and any of its derivatives listed.
+
+   i3.color.lope = Lope's Color V2
+      - Seems to be the dominant choice in Rom muds.
+
+   i3.color.ack = Color profile for ACK muds.
+
+   When you pick what you want, rename the file simply as i3.color so the code will be able to load it.
+   Be sure your file is uploaded as ASCII.
+
+4. Refer to the file your codebase is most closely derived from and follow the directions within.
+   Any commonly known derivatives which have also been tested will have specific steps to complete in the file.
+
+When done, return here to finish.
+
+STOP HERE IF USING CIRCLEMUD! Open Circle.txt and proceed from there - you cannot continue to use these directions!
+
+5. Alter your Makefile to include the source code to compile.
+
+   Above the list of C and/or H files, add the following:
+
+#Intermud-3 - Comment out to disable I3 support in your code
+I3 = 1
+
+   Then directly below the list of C and/or O files, add the following:
+   [Note: BSD users - put a period in front of the word ifdef, and in front of the word endif]
+
+ifdef I3
+   C_FILES := i3.c $(C_FILES)
+   O_FILES := i3.o $(O_FILES)
+   C_FLAGS := $(C_FLAGS) -DI3 <codebase flag>
+endif
+
+   Substitute one of the following for <codebase flag>:
+
+   -DI3SMAUG, -DI3ROM, -DI3ACK, -DI3MERC, -DI3UENVY
+
+6a. SMAUG: Open mud.h
+
+   Locate the following:
+
+/*
+ * Structure for extended bitvectors -- Thoric
+ */
+struct extended_bitvector
+{
+    unsigned int		bits[XBI]; /* Needs to be unsigned to compile in Redhat 6 - Samson */
+};
+
+   Directly below that, add the following:
+
+#ifdef I3
+   #include "i3.h"
+#endif
+
+   Continue to step 6e
+
+6b. ROM: Open merc.h and locate the following code:
+
+#define IMPLEMENTOR		MAX_LEVEL
+#define	CREATOR			(MAX_LEVEL - 1)
+#define SUPREME			(MAX_LEVEL - 2)
+#define DEITY			(MAX_LEVEL - 3)
+#define GOD			(MAX_LEVEL - 4)
+#define IMMORTAL		(MAX_LEVEL - 5)
+#define DEMI			(MAX_LEVEL - 6)
+#define ANGEL			(MAX_LEVEL - 7)
+#define AVATAR			(MAX_LEVEL - 8)
+#define HERO			LEVEL_HERO
+
+   Directly below that, add the following:
+
+#ifdef I3
+   #include "i3.h"
+#endif
+
+   Continue to step 6e
+
+6c. ACK: Open ack.h and locate the following:
+
+#ifndef DEC_STRFUNS_H
+#include "strfuns.h"
+#endif
+
+#ifndef DEC_ACT_MOB_H
+#include "act_mob.h"
+#endif
+
+   Directly below that, add the following:
+
+#ifdef I3
+   #include "i3.h"
+#endif
+
+   Continue to step 6e
+
+6d. MERC: Open merc.h and locate the following code:
+
+#define PULSE_PER_SECOND	    4
+#define PULSE_VIOLENCE		  ( 3 * PULSE_PER_SECOND)
+#define PULSE_MOBILE		  ( 4 * PULSE_PER_SECOND)
+#define PULSE_TICK		  (30 * PULSE_PER_SECOND)
+#define PULSE_AREA		  (60 * PULSE_PER_SECOND)
+
+   Directly below that, add the following:
+
+#ifdef I3
+   #include "i3.h"
+#endif
+
+   Continue to step 6e
+
+6e. Locate the pc_data struct and add the following to the end:
+
+#ifdef I3
+    I3_CHARDATA  *i3chardata;
+#endif
+
+7. Open interp.c
+
+   Then locate the following section:
+
+if ( !check_social( ch, command, argument )
+
+    Change that to read as follows:
+
+   Add the following condition to whatever series of ifchecks exist there:
+
+#ifdef I3
+	&&   !I3_command_hook( ch, command, argument )
+#endif
+ 
+8. Open comm.c and locate main():
+
+   A. If your mud uses copyover/hotboot, find this section( it may not look EXACTLY like this, adjust as needed ):
+	If your mud does NOT use copyover/hotboot, move to B.
+
+      if( argv[2] && argv[2][0] )
+      {
+         fCopyOver = TRUE;
+         control = atoi( argv[3] );
+      }
+      else
+         fCopyOver = FALSE;
+
+   Change it to read as( while adjusting as needed ):
+
+      if( argv[2] && argv[2][0] )
+      {
+         fCopyOver = TRUE;
+         control = atoi( argv[3] );
+#ifdef I3
+	   I3_socket = atoi( argv[4] );
+#endif
+      }
+      else
+         fCopyOver = FALSE;
+
+   This next part is somewhat tricky. If copyover_recover is called in db.c as is the usual case in
+   most default installs, you need to place the following BEFORE the boot_db call. If it is listed
+   somewhere here in comm.c, the following needs to be placed ABOVE it. Either way, I3_main needs
+   to be called BEFORE copyover_recover or your mud WILL crash every time you do a copyover.
+
+#ifdef I3
+   /* Initialize and connect to Intermud-3 */
+   I3_main( FALSE, port, fCopyOver );
+#endif 
+
+   B. If your mud is NOT using copyover/hotboot:
+
+      Locate the following:
+
+    log_string("Initializing socket");
+    control  = init_socket( port   );
+    control2 = init_socket( port+1 );
+    conclient= init_socket( port+10);
+    conjava  = init_socket( port+20);
+
+   Add the following lines directly below that:
+
+#ifdef I3
+   /* Initialize and connect to Intermud-3 */
+   I3_main( FALSE, port, FALSE );
+#endif
+
+   C. All muds - continue from here:
+
+   Then locate the following section:
+
+    close( control );
+
+   Add the following lines directly below that section:
+
+#ifdef I3
+    I3_shutdown( 0 );
+#endif 
+
+   Then locate function game_loop and find the following section:
+   [Look for game_loop_unix on Merc, Rom, and ACK]
+
+	/*
+	 * Autonomous game motion.
+	 */
+	update_handler( );
+
+   Directly ABOVE that, add the following section:
+
+#ifdef I3
+      I3_loop( );
+#endif
+
+   Then locate function act_string, and find the following code:
+   [On Merc and ACK, locate function act. On Rom, locate function act_new.]
+
+      switch ( *str )
+      {
+      default:  bug( "Act: bad code %c.", *str );
+		bug( "Act: Bad code came from %s", ch->name );
+		i = " <@@@> ";						break;
+
+   Directly below that, add the following:
+   [Your main concern here is to add it underneath the statement that logs the bad code]
+
+#ifdef I3
+	case '$': 
+	    i = "$";
+	    break;
+#endif
+
+9. Open save.c and locate fread_char
+
+   In the case 'I': section, and right before the final break; add the follwing:
+   [Merc22 does not have a case 'I': section, so you'll need to make one.]
+
+#ifdef I3
+	    fMatch = i3load_char( ch, fp, word );
+#endif
+
+   Then locate function fwrite_char, and find the following code:
+
+    fprintf( fp, "End\n\n" );
+    return;
+
+   Directly ABOVE that, add the following:
+
+#ifdef I3
+    i3save_char( ch, fp );
+#endif
+
+   Then in load_char_obj(), locate the following:
+
+    found = FALSE;
+    sprintf( strsave, "%s%c/%s", PLAYER_DIR, tolower(name[0]), capitalize( name ) );
+
+   Directly ABOVE that, add the following:
+
+#ifdef I3
+    i3init_char( ch );
+#endif
+
+10. Open db.c
+   [In some ROM derivs, this is found in recycle.c]
+
+   Find function free_char:
+
+Add the following in the part dealing with ch->pcdata.
+Make sure it goes in BEFORE the pc_data pointer is disposed of!
+
+#ifdef I3
+	free_i3chardata( ch );
+#endif
+
+11. For users of copyover only - Target code may not be exact:
+
+   In function do_copyover, locate the following code:
+
+    DESCRIPTOR_DATA *d, *de_next;
+    char buf [100], buf2[100], buf3[100], buf4[100], buf5[100];
+
+   Directly below that, add:
+
+    char buf6[100];
+
+   Then further down, find the following:
+
+    /* exec - descriptors are inherited */
+    sprintf( buf,  "%d", port );
+    sprintf( buf2, "%d", control );
+    sprintf( buf3, "%d", control2 );
+    sprintf( buf4, "%d", conclient );
+    sprintf( buf5, "%d", conjava );
+  
+    execl( EXE_FILE, "smaug", buf, "hotboot",  buf2, buf3, buf4, buf5, (char *)NULL );
+
+   Change that to read as follows:
+
+#ifdef I3
+   if( I3_is_connected() )
+   {
+	I3_savechanlist();
+	I3_savemudlist();
+   }
+#endif
+
+    /* exec - descriptors are inherited */
+    sprintf( buf,  "%d", port );
+    sprintf( buf2, "%d", control );
+    sprintf( buf3, "%d", control2 );
+    sprintf( buf4, "%d", conclient );
+    sprintf( buf5, "%d", conjava );
+#ifdef I3
+    sprintf( buf6, "%d", I3_socket );
+#else
+    strcpy( buf6, "-1" );
+#endif
+
+    execl( EXE_FILE, "smaug", buf, "hotboot",  buf2, buf3, buf4, buf5, buf6, (char *)NULL );
+
+12. Make clean, recompile.
+
+13. Before you reboot, make sure the i3.config file has been placed in the proper directory
+    and has been configured properly for your mud. The file should be fairly self explanatory.
+    You will not be able to connect to the I3 router until this file is ready.
+
+14. Add the suggested helpfile entries in the i3helps.are file to your help files.
+
+With any luck, you should now be connected to Intermud-3.
+
+Now you just need to configure it. I bet you thought this was over didn't you!
+
+Before you reboot, make sure the i3.config file has been placed in the proper directory
+and has been configured properly for your mud. The file should be fairly self explanatory.
+You will not be able to connect to an I3 router until this file is ready.
+
+Once configured, go ahead and reboot your mud. Try typing "I3" by itself on your
+command line. You should get back a list of commands. Try typing "i3help" by itself
+on your command line. You should see a listing of help topics available. By default,
+these should also be in color. If all 3 of these conditions are met, you are ready!
+
+Type "i3connect". Assuming you've got log channels visible, you should see some sort
+of confirmation that you've connected. If not, something went wrong and you need to
+check your logs for messages that indicate what.
+
+If there are any problems with this installation, post any issues on the repository.
+
+If you've obtained this code from someplace OTHER than my GitHub repository
+and you are encountering problems, go download it from my repository before
+you contact me for help.
