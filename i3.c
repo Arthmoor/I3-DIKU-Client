@@ -4212,7 +4212,7 @@ void I3_read_packet( void )
    // Validate that the incoming size is valid. If not, kick the descriptor.
    if( size == 0 || size > IPS )
    {
-      i3log( "CRITICAL: Received invalid packet size: %s", size );
+      i3log( "CRITICAL: Received invalid packet size: %u", (unsigned int)size );
       I3_connection_close( TRUE );
       return;
    }
